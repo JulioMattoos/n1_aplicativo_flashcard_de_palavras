@@ -1,82 +1,96 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const FlashcardApp());
+  runApp(const MyApp());
 }
 
-class FlashcardApp extends StatelessWidget {
-  const FlashcardApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flashcard App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const LanguageSelectionScreen(),
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: LanguageSelectionScreen(),
     );
   }
 }
 
+// ------------------- TELA DE SELEÇÃO DE IDIOMA -------------------
 class LanguageSelectionScreen extends StatelessWidget {
   const LanguageSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Selecione um Idioma'),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Selecione um idioma para começar!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => FlashcardScreen(language: 'Inglês'),
+      backgroundColor: Colors.indigo[400],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Pesquisar...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
-                );
-              },
-              child: const Text('Inglês'),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => FlashcardScreen(language: 'Espanhol'),
-                  ),
-                );
-              },
-              child: const Text('Espanhol'),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => FlashcardScreen(language: 'Francês'),
-                  ),
-                );
-              },
-              child: const Text('Francês'),
-            ),
-          ],
+                ),
+              ),
+              const SizedBox(height: 40),
+              const Text(
+                'Selecione um Idioma!',
+                style: TextStyle(color: Colors.white, fontSize: 22),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _languageButton(context, 'Inglês'),
+                    const SizedBox(height: 15),
+                    _languageButton(context, 'Espanhol'),
+                    const SizedBox(height: 15),
+                    _languageButton(context, 'Francês'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _languageButton(BuildContext context, String language) {
+    return SizedBox(
+      width: 200,
+      height: 50,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.indigo[900],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => FlashcardScreen(language: language),
+            ),
+          );
+        },
+        child: Text(language, style: const TextStyle(fontSize: 18)),
       ),
     );
   }
 }
 
+// ------------------- TELA DE FLASHCARDS -------------------
 class FlashcardScreen extends StatefulWidget {
   final String language;
 
@@ -86,7 +100,7 @@ class FlashcardScreen extends StatefulWidget {
   State<FlashcardScreen> createState() => _FlashcardScreenState();
 }
 
-class _FlashcardScreenState extends State<FlashcardScreen> {
+class _FlashcardScreenState extends State<FlashcardScreen> with SingleTickerProviderStateMixin {
   final Map<String, List<Map<String, String>>> flashcards = {
     'Inglês': [
       {'word': 'Hello', 'translation': 'Olá'},
@@ -129,10 +143,53 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   int currentIndex = 0;
   bool isRevealed = false;
 
+  late final AnimationController _controller;
+  late final Animation<Offset> _slideAnimation;
+
   @override
   void initState() {
     super.initState();
-    flashcards[widget.language]!.shuffle(); // 🔹 embaralhar as cartas
+    flashcards[widget.language]?.shuffle();
+
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void nextCard() {
+    if (currentIndex < flashcards[widget.language]!.length - 1) {
+      setState(() {
+        currentIndex++;
+        isRevealed = false;
+        _controller.reset();
+        _controller.forward();
+      });
+    }
+  }
+
+  void previousCard() {
+    if (currentIndex > 0) {
+      setState(() {
+        currentIndex--;
+        isRevealed = false;
+        _controller.reset();
+        _controller.forward();
+      });
+    }
   }
 
   @override
@@ -141,81 +198,99 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     final currentCard = cards[currentIndex];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Flashcards em ${widget.language}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.language),
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                    builder: (context) => const LanguageSelectionScreen()),
-                (route) => false,
-              );
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15)),
-              child: Container(
-                width: 300,
-                height: 200,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  isRevealed ? currentCard['translation']! : currentCard['word']!,
-                  style: const TextStyle(
-                      fontSize: 32, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+      backgroundColor: Colors.indigo[400],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Pesquisar...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  isRevealed = !isRevealed;
-                });
-              },
-              child: Text(isRevealed ? 'Ocultar Tradução' : 'Revelar Tradução'),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(
-                  onPressed: currentIndex > 0
-                      ? () {
+              const SizedBox(height: 40),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SlideTransition(
+                        position: _slideAnimation,
+                        child: Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Container(
+                            width: 300,
+                            height: 150,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              isRevealed ? currentCard['translation']! : currentCard['word']!,
+                              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () {
                           setState(() {
-                            currentIndex--;
-                            isRevealed = false;
+                            isRevealed = !isRevealed;
                           });
-                        }
-                      : null,
-                  child: const Text('Anterior'),
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.indigo[900],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(isRevealed ? 'Ocultar Tradução' : 'Revelar Tradução'),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            onPressed: currentIndex > 0 ? previousCard : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.indigo[900],
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Anterior'),
+                          ),
+                          const SizedBox(width: 20),
+                          ElevatedButton(
+                            onPressed: currentIndex < cards.length - 1 ? nextCard : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.indigo[900],
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Próximo'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: currentIndex < cards.length - 1
-                      ? () {
-                          setState(() {
-                            currentIndex++;
-                            isRevealed = false;
-                          });
-                        }
-                      : null,
-                  child: const Text('Próximo'),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
